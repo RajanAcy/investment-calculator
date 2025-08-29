@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investment Viability Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral -->
+    <!-- Application Structure Plan: A two-column layout was chosen to separate user inputs from dynamic outputs. The left column acts as a control panel for all variables, allowing for interactive "what-if" analysis. The right column is a dashboard that instantly reflects changes, prioritizing key metrics in visual cards at the top, followed by a graphical cash flow chart for trends, and a collapsible detailed table for in-depth analysis. This structure provides a clear, task-oriented user flow, moving from data entry to high-level summary and then to detailed exploration, which is more intuitive than a linear report format. -->
+    <!-- Visualization & Content Choices: Initial Investment -> Goal: Inform -> Input Fields -> User Entry -> Direct input for core data. Key Metrics (NPV, IRR, etc.) -> Goal: Inform -> Styled Cards with Conditional Color -> JS DOM update -> Provides immediate, high-level feedback on viability. Cash Flow -> Goal: Change/Compare -> Bar Chart -> Chart.js/Canvas -> Visualizes project profitability over time. Detailed Projections -> Goal: Organize -> Collapsible HTML Table -> JS DOM update -> Offers deep-dive data without cluttering the main view. This combination translates the static report into an interactive decision-making tool. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fdfbf7;
+            color: #4a4a4a;
+        }
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        .input-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #4a4a4a;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 0.5rem;
+            background-color: #ffffff;
+            transition: border-color 0.3s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #a58c67;
+        }
+        .metric-card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #f0f0f0;
+        }
+        .metric-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #4a4a4a;
+            margin-bottom: 0.5rem;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #3a3a3a;
+        }
+        .metric-note {
+            font-size: 0.75rem;
+            color: #6a6a6a;
+            margin-top: 0.75rem;
+        }
+        .positive {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .negative {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .neutral {
+            background-color: #f5f5f5;
+            color: #5a5a5a;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-[#3a3a3a]">Production Machine Investment Analysis</h1>
+            <p class="text-lg text-gray-600 mt-2">An interactive tool to assess the financial viability of your next capital expenditure.</p>
+        </header>
+
+        <main class="flex flex-col lg:flex-row gap-8">
+            <aside class="w-full lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h2 class="text-2xl font-semibold mb-6 text-[#4a4a4a]">Input Parameters</h2>
+                
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-lg font-semibold border-b pb-2 mb-4 text-[#a58c67]">Initial Investment</h3>
+                        <div class="input-group">
+                            <label for="purchasePrice" class="input-label">Purchase Price ($)</label>
+                            <input type="number" id="purchasePrice" class="input-field" value="150000">
+                        </div>
+                        <div class="input-group">
+                            <label for="installFees" class="input-label">Installation & Shipping ($)</label>
+                            <input type="number" id="installFees" class="input-field" value="10000">
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold border-b pb-2 mb-4 text-[#a58c67]">Production & Revenue</h3>
+                        <div class="input-group">
+                            <label for="annualProduction" class="input-label">Annual Production Increase (Units)</label>
+                            <input type="number" id="annualProduction" class="input-field" value="5000">
+                        </div>
+                        <div class="input-group">
+                            <label for="pricePerUnit" class="input-label">Price per Unit ($)</label>
+                            <input type="number" id="pricePerUnit" class="input-field" value="20">
+                        </div>
+                        <div class="input-group">
+                            <label for="savingsPerUnit" class="input-label">Cost Savings per Unit ($)</label>
+                            <input type="number" id="savingsPerUnit" class="input-field" value="2">
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold border-b pb-2 mb-4 text-[#a58c67]">Operational Costs (Annual)</h3>
+                        <div class="input-group">
+                            <label for="maintenance" class="input-label">Maintenance Costs ($)</label>
+                            <input type="number" id="maintenance" class="input-field" value="5000">
+                        </div>
+                        <div class="input-group">
+                            <label for="utility" class="input-label">Increased Utility Costs ($)</label>
+                            <input type="number" id="utility" class="input-field" value="3000">
+                        </div>
+                        <div class="input-group">
+                            <label for="labor" class="input-label">Additional Labor Costs ($)</label>
+                            <input type="number" id="labor" class="input-field" value="12000">
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold border-b pb-2 mb-4 text-[#a58c67]">Financial Metrics</h3>
+                        <div class="input-group">
+                            <label for="discountRate" class="input-label">Discount Rate (%)</label>
+                            <input type="number" id="discountRate" class="input-field" value="10">
+                        </div>
+                        <div class="input-group">
+                            <label for="taxRate" class="input-label">Corporate Tax Rate (%)</label>
+                            <input type="number" id="taxRate" class="input-field" value="25">
+                        </div>
+                         <div class="input-group">
+                            <label for="years" class="input-label">Number of Years</label>
+                            <input type="number" id="years" class="input-field" value="5">
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="w-full lg:w-2/3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div id="npvCard" class="metric-card">
+                        <h4 class="metric-title">Net Present Value (NPV)</h4>
+                        <p id="npvValue" class="metric-value">$0</p>
+                        <p class="metric-note">Measures the profitability of the investment in today's dollars. Positive is good.</p>
+                    </div>
+                    <div id="irrCard" class="metric-card">
+                        <h4 class="metric-title">Internal Rate of Return (IRR)</h4>
+                        <p id="irrValue" class="metric-value">0%</p>
+                        <p class="metric-note">The discount rate at which NPV equals zero. Higher is better.</p>
+                    </div>
+                    <div class="metric-card">
+                        <h4 class="metric-title">Simple Payback Period</h4>
+                        <p id="paybackValue" class="metric-value">0 Years</p>
+                        <p class="metric-note">Time to recoup the initial investment, ignoring time value of money.</p>
+                    </div>
+                    <div class="metric-card">
+                        <h4 class="metric-title">Break-Even Point</h4>
+                        <p id="breakEvenValue" class="metric-value">0 Units</p>
+                        <p class="metric-note">Annual units needed to cover the machine's fixed costs.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8">
+                    <h3 class="text-xl font-semibold mb-4 text-center">Projected Annual Cash Flow (After-Tax)</h3>
+                    <div class="chart-container">
+                        <canvas id="cashFlowChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <button id="toggleTableBtn" class="w-full text-left font-semibold text-lg mb-4 text-[#4a4a4a]" aria-expanded="false" aria-controls="cashFlowTableContainer">
+                        Show Detailed Cash Flow Table &#9662;
+                    </button>
+                    <div id="cashFlowTableContainer" class="hidden overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr id="tableHeader">
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cashFlowTableBody" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputs = document.querySelectorAll('.input-field');
+            const toggleBtn = document.getElementById('toggleTableBtn');
+            const tableContainer = document.getElementById('cashFlowTableContainer');
+            let cashFlowChart;
+
+            function formatCurrency(value) {
+                return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+            }
+
+            function formatNumber(value) {
+                return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+            }
+
+            function formatPercent(value) {
+                return new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+            }
+            
+            function calculateIRR(cashFlows, guess = 0.1) {
+                const maxIterations = 1000;
+                const tolerance = 1e-7;
+
+                let x0 = guess;
+                for (let i = 0; i < maxIterations; i++) {
+                    let npv = 0;
+                    let derivative = 0;
+                    for (let t = 0; t < cashFlows.length; t++) {
+                        npv += cashFlows[t] / Math.pow(1 + x0, t);
+                        derivative -= t * cashFlows[t] / Math.pow(1 + x0, t + 1);
+                    }
+                    if (Math.abs(npv) < tolerance) {
+                        return x0;
+                    }
+                    if (derivative === 0) break;
+                    x0 = x0 - npv / derivative;
+                }
+                return NaN;
+            }
+
+            function calculate() {
+                const years = parseInt(document.getElementById('years').value, 10) || 0;
+                const purchasePrice = parseFloat(document.getElementById('purchasePrice').value) || 0;
+                const installFees = parseFloat(document.getElementById('installFees').value) || 0;
+                const annualProduction = parseFloat(document.getElementById('annualProduction').value) || 0;
+                const pricePerUnit = parseFloat(document.getElementById('pricePerUnit').value) || 0;
+                const savingsPerUnit = parseFloat(document.getElementById('savingsPerUnit').value) || 0;
+                const maintenance = parseFloat(document.getElementById('maintenance').value) || 0;
+                const utility = parseFloat(document.getElementById('utility').value) || 0;
+                const labor = parseFloat(document.getElementById('labor').value) || 0;
+                const discountRate = (parseFloat(document.getElementById('discountRate').value) || 0) / 100;
+                const taxRate = (parseFloat(document.getElementById('taxRate').value) || 0) / 100;
+
+                const initialInvestment = purchasePrice + installFees;
+                const annualRevenue = annualProduction * pricePerUnit;
+                const annualCostSavings = annualProduction * savingsPerUnit;
+                const annualOpCosts = maintenance + utility + labor;
+                
+                const annualGrossProfit = annualRevenue + annualCostSavings - annualOpCosts;
+                const taxImpact = annualGrossProfit > 0 ? annualGrossProfit * taxRate : 0;
+                const annualNetCashFlow = annualGrossProfit - taxImpact;
+
+                const cashFlows = [-initialInvestment];
+                const afterTaxCashFlowsForCalc = [];
+                for (let i = 0; i < years; i++) {
+                    cashFlows.push(annualNetCashFlow);
+                    afterTaxCashFlowsForCalc.push(annualNetCashFlow);
+                }
+
+                let npv = -initialInvestment;
+                for (let i = 0; i < years; i++) {
+                    npv += afterTaxCashFlowsForCalc[i] / Math.pow(1 + discountRate, i + 1);
+                }
+
+                const irr = calculateIRR(cashFlows);
+
+                const simplePayback = annualNetCashFlow > 0 ? initialInvestment / annualNetCashFlow : Infinity;
+                
+                const contributionMargin = pricePerUnit + savingsPerUnit;
+                const breakEvenUnits = contributionMargin > 0 ? annualOpCosts / contributionMargin : Infinity;
+
+                updateDashboard(npv, irr, simplePayback, breakEvenUnits, discountRate);
+                updateChart(cashFlows, years);
+                updateTable(initialInvestment, annualRevenue, annualCostSavings, annualOpCosts, taxImpact, annualNetCashFlow, discountRate, years);
+            }
+
+            function updateDashboard(npv, irr, payback, breakEven, discountRate) {
+                const npvValueEl = document.getElementById('npvValue');
+                const irrValueEl = document.getElementById('irrValue');
+                const paybackValueEl = document.getElementById('paybackValue');
+                const breakEvenValueEl = document.getElementById('breakEvenValue');
+                const npvCard = document.getElementById('npvCard');
+                const irrCard = document.getElementById('irrCard');
+
+                npvValueEl.textContent = formatCurrency(npv);
+                irrValueEl.textContent = isNaN(irr) ? 'N/A' : formatPercent(irr);
+                paybackValueEl.textContent = isFinite(payback) ? `${payback.toFixed(2)} Years` : 'N/A';
+                breakEvenValueEl.textContent = isFinite(breakEven) ? `${formatNumber(breakEven)} Units` : 'N/A';
+
+                npvCard.className = 'metric-card';
+                if (npv > 0) npvCard.classList.add('positive');
+                else if (npv < 0) npvCard.classList.add('negative');
+                else npvCard.classList.add('neutral');
+
+                irrCard.className = 'metric-card';
+                if (!isNaN(irr) && irr > discountRate) irrCard.classList.add('positive');
+                else if (!isNaN(irr)) irrCard.classList.add('negative');
+                else irrCard.classList.add('neutral');
+            }
+
+            function updateChart(cashFlows, years) {
+                const ctx = document.getElementById('cashFlowChart').getContext('2d');
+                const labels = Array.from({ length: years + 1 }, (_, i) => `Year ${i}`);
+                const data = cashFlows;
+
+                if (cashFlowChart) {
+                    cashFlowChart.data.labels = labels;
+                    cashFlowChart.data.datasets[0].data = data;
+                    cashFlowChart.update();
+                } else {
+                    cashFlowChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'After-Tax Cash Flow',
+                                data: data,
+                                backgroundColor: data.map(v => v < 0 ? '#ef9a9a' : '#a5d6a7'),
+                                borderColor: data.map(v => v < 0 ? '#c62828' : '#2e7d32'),
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `Cash Flow: ${formatCurrency(context.raw)}`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return formatCurrency(value);
+                                        }
+                                    }
+                                },
+                                x: {
+                                    grid: { display: false }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+            
+            function updateTable(initialInvestment, annualRevenue, annualCostSavings, annualOpCosts, taxImpact, annualNetCashFlow, discountRate, years) {
+                const tableBody = document.getElementById('cashFlowTableBody');
+                const tableHeader = document.getElementById('tableHeader');
+                tableBody.innerHTML = '';
+                tableHeader.innerHTML = '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>';
+                for (let i = 0; i <= years; i++) {
+                    tableHeader.innerHTML += `<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">${i}</th>`;
+                }
+                
+                const rows = [
+                    { title: 'Initial Investment', values: [-initialInvestment, ...Array(years).fill(0)] },
+                    { title: 'Annual Revenue', values: [0, ...Array(years).fill(annualRevenue)] },
+                    { title: 'Cost Savings', values: [0, ...Array(years).fill(annualCostSavings)] },
+                    { title: 'Operational Costs', values: [0, ...Array(years).fill(-annualOpCosts)] },
+                    { title: 'Net Cash Flow (Pre-Tax)', values: [-initialInvestment, ...Array(years).fill(annualRevenue + annualCostSavings - annualOpCosts)] },
+                    { title: 'Tax Impact', values: [0, ...Array(years).fill(-taxImpact)] },
+                    { title: 'Net Cash Flow (After-Tax)', values: [-initialInvestment, ...Array(years).fill(annualNetCashFlow)], isBold: true },
+                ];
+                
+                let cumulativeDiscounted = 0;
+                const cumulativeRow = { title: 'Cumulative Discounted CF', values: [] };
+                for(let i = 0; i <= years; i++) {
+                    const discountedCF = rows[6].values[i] / Math.pow(1 + discountRate, i);
+                    cumulativeDiscounted += discountedCF;
+                    cumulativeRow.values.push(cumulativeDiscounted);
+                }
+                rows.push(cumulativeRow);
+
+                rows.forEach(rowData => {
+                    const tr = document.createElement('tr');
+                    if (rowData.isBold) tr.classList.add('font-bold', 'bg-gray-50');
+                    let cells = `<td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${rowData.title}</td>`;
+                    rowData.values.forEach(val => {
+                        const textColor = val < 0 ? 'text-red-600' : 'text-gray-900';
+                        cells += `<td class="px-4 py-2 whitespace-nowrap text-sm text-right ${textColor}">${formatCurrency(val)}</td>`;
+                    });
+                    tr.innerHTML = cells;
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            inputs.forEach(input => input.addEventListener('input', calculate));
+            
+            toggleBtn.addEventListener('click', () => {
+                const isHidden = tableContainer.classList.contains('hidden');
+                if (isHidden) {
+                    tableContainer.classList.remove('hidden');
+                    toggleBtn.innerHTML = 'Hide Detailed Cash Flow Table &#9652;';
+                    toggleBtn.setAttribute('aria-expanded', 'true');
+                } else {
+                    tableContainer.classList.add('hidden');
+                    toggleBtn.innerHTML = 'Show Detailed Cash Flow Table &#9662;';
+                    toggleBtn.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            calculate();
+        });
+    </script>
+</body>
+</html>
